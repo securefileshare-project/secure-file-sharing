@@ -8,58 +8,66 @@
 
     <style>
         body{
-            background:#f5f6fa;
+            background: linear-gradient(135deg,#0f172a,#020617);
+            color:white;
+            min-height:100vh;
         }
-        .box{
-            background:white;
-            border-radius:14px;
-            padding:25px;
-            box-shadow:0 8px 25px rgba(0,0,0,0.08);
+        .card{
+            background:#020617;
+            border:1px solid #1f2937;
         }
     </style>
 </head>
 
 <body>
 
-<div class="container mt-5">
+<nav class="navbar navbar-dark bg-dark px-3">
+    <span class="navbar-brand h1">🔐 Secure File Sharing System</span>
+</nav>
 
+<!-- FLASH MESSAGES -->
 {% with messages = get_flashed_messages(with_categories=True) %}
   {% if messages %}
     {% for category, msg in messages %}
-      <div class="alert alert-{{category}}">{{ msg }}</div>
+      <div class="alert alert-{{category}} text-center m-3" role="alert">
+        {{ msg }}
+      </div>
     {% endfor %}
   {% endif %}
 {% endwith %}
 
-  <div class="row justify-content-center">
-    <div class="col-md-5">
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
 
-      <div class="box">
+            <div class="card p-4 shadow-lg rounded-4">
 
-        <h4 class="mb-2">Enter OTP</h4>
-        <p class="text-muted">
-            Check your email — enter the OTP to continue
-        </p>
+                <h4 class="text-center mb-2">OTP Verification</h4>
+                <p class="text-center text-secondary">
+                    Enter the OTP sent to receiver email.
+                </p>
 
-        <form method="POST">
+                <form method="POST">
 
-            <input class="form-control mt-2"
-                   type="number"
-                   name="otp"
-                   placeholder="Enter OTP"
-                   required>
+                    <div class="mb-3">
+                        <label class="form-label">Enter OTP</label>
+                        <input class="form-control" type="number" name="otp" required placeholder="6-digit OTP">
+                    </div>
 
-            <button class="btn btn-success w-100 mt-3">
-                Verify OTP
-            </button>
+                    <button class="btn btn-primary w-100">
+                        Verify OTP
+                    </button>
 
-        </form>
+                </form>
 
-      </div>
+                <a href="/" class="btn btn-outline-light w-100 mt-3">
+                    Back to Upload
+                </a>
 
+            </div>
+
+        </div>
     </div>
-  </div>
-
 </div>
 
 </body>
