@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Admin Logs</title>
+
     <link rel="stylesheet"
      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
 
@@ -16,7 +17,38 @@
             border:1px solid #1f2937;
         }
         table{
-            color:white;
+            color:white !important;
+        }
+        th{
+            background:#1e293b !important;
+            color:white !important;
+        }
+        td{
+            background:#020617 !important;
+            color:white !important;
+            border-color:#1f2937 !important;
+        }
+        .status-badge{
+            padding:6px 12px;
+            border-radius:12px;
+            font-weight:600;
+            font-size:14px;
+        }
+        .success{
+            background:#14532d;
+            color:#bbf7d0;
+        }
+        .danger{
+            background:#7f1d1d;
+            color:#fecaca;
+        }
+        .warn{
+            background:#78350f;
+            color:#fed7aa;
+        }
+        .info{
+            background:#1e3a8a;
+            color:#bfdbfe;
         }
     </style>
 </head>
@@ -24,43 +56,73 @@
 <body>
 
 <nav class="navbar navbar-dark bg-dark px-3">
-    <span class="navbar-brand h1">📄 Admin Download Logs</span>
+    <span class="navbar-brand h1">📊 Admin Log Viewer</span>
 </nav>
 
 <div class="container mt-4">
-    <div class="card p-4 shadow-lg rounded-4">
-        <h4 class="mb-3">Download Activity</h4>
+    <div class="row justify-content-center">
+        <div class="col-md-10">
 
-        {% if logs and logs|length > 0 %}
-        <div class="table-responsive">
-            <table class="table table-dark table-striped table-bordered">
-                <thead>
-                    <tr>
-                        <th>Date & Time</th>
-                        <th>Email</th>
-                        <th>IP Address</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for log in logs %}
-                    <tr>
-                        <td>{{ log.date }}</td>
-                        <td>{{ log.email }}</td>
-                        <td>{{ log.ip }}</td>
-                        <td>{{ log.status }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="card p-4 shadow-lg rounded-4">
+
+                <h4 class="text-center mb-3">Download & OTP Activity Logs</h4>
+                <p class="text-center text-secondary">
+                    This page shows OTP verification + download attempts.
+                </p>
+
+                {% if logs and logs|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle mt-3">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Email</th>
+                                <th>IP Address</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td>{{ log.date }}</td>
+                                <td>{{ log.email }}</td>
+                                <td>{{ log.ip }}</td>
+
+                                <td>
+                                    {% set s = log.status|string %}
+                                    {% if "SUCCESS" in s %}
+                                        <span class="status-badge success">{{ log.status }}</span>
+                                    {% elif "WRONG" in s or "BLOCK" in s %}
+                                        <span class="status-badge danger">{{ log.status }}</span>
+                                    {% elif "EXPIRED" in s %}
+                                        <span class="status-badge warn">{{ log.status }}</span>
+                                    {% else %}
+                                        <span class="status-badge info">{{ log.status }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+
+                    </table>
+                </div>
+                {% else %}
+                    <div class="alert alert-warning text-center mt-3">
+                        No logs found yet. Try uploading a file and verifying OTP.
+                    </div>
+                {% endif %}
+
+                <a href="{{ url_for('upload_file') }}" class="btn btn-outline-light mt-3 w-100">
+                    ⬅ Back to Upload Page
+                </a>
+
+            </div>
+
         </div>
-        {% else %}
-        <p class="text-warning">No logs found yet.</p>
-        {% endif %}
-
-        <a href="/" class="btn btn-secondary mt-3">⬅ Back to Upload</a>
     </div>
 </div>
 
 </body>
 </html>
+
