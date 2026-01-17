@@ -45,7 +45,7 @@ def send_otp_email(receiver, otp):
         f"Your OTP is: {otp}\n\nUse it to download your file.\nDo NOT share this with anyone."
     )
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465,timeout=10) as smtp:
         smtp.login(SENDER_EMAIL, APP_PASSWORD)
         smtp.send_message(msg)
 
@@ -222,5 +222,6 @@ def download_file():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 
 
