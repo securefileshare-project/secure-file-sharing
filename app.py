@@ -12,8 +12,8 @@ app = Flask(__name__)
 app.secret_key = "securefilesharingproject"
 
 # -------- EMAIL SETTINGS --------
-SENDER_EMAIL = "securefileshare123@gmail.com"
-APP_PASSWORD = "sxqrndghplpyrxjr"
+SENDER_EMAIL = os.environ.get("securefileshare123@gmail.com")
+APP_PASSWORD = os.environ.get("sxqrndghplpyrxjr")
 
 # -------- FOLDERS --------
 if not os.path.exists("encrypted_files"):
@@ -222,3 +222,4 @@ def download_file():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
