@@ -37,17 +37,26 @@ cipher = Fernet(key)
 
 # -------- SEND OTP MAIL --------
 def send_otp_email(receiver, otp):
-    msg = EmailMessage()
-    msg["Subject"] = "Secure File Sharing – OTP"
-    msg["From"] = SENDER_EMAIL
-    msg["To"] = receiver
-    msg.set_content(
-        f"Your OTP is: {otp}\n\nUse it to download your file.\nDo NOT share this with anyone."
-    )
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = "Secure File Sharing - OTP"
+        msg["From"] = SENDER_EMAIL
+        msg["To"] = receiver
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465,timeout=10) as smtp:
-        smtp.login(SENDER_EMAIL, APP_PASSWORD)
-        smtp.send_message(msg)
+        msg.set_content(
+            f"Your OTP is: {otp}\n\nUse it to download your file.\nDo NOT share this with anyone."
+        )
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as smtp:
+            smtp.login(SENDER_EMAIL, APP_PASSWORD)
+            smtp.send_message(msg)
+
+        return True
+
+    except Exception as e:
+        print("❌ OTP Mail sending failed:", e)
+        return False
+
 
 # -------- GLOBAL OTP SETTINGS --------
 generated_otp = None
@@ -222,6 +231,7 @@ def download_file():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 
 
 
