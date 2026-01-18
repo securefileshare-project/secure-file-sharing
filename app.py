@@ -47,7 +47,9 @@ def send_otp_email(receiver, otp):
         )
 
         with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as smtp:
+            smtp.ehlo()
             smtp.starttls()
+            smtp.ehlo()
             smtp.login(SENDER_EMAIL, APP_PASSWORD)
             smtp.send_message(msg)
 
@@ -231,6 +233,7 @@ def download_file():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 
 
 
