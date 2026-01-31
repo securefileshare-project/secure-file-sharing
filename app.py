@@ -38,27 +38,29 @@ else:
 cipher = Fernet(key)
 
 # ---------- SEND OTP EMAIL (BREVO SMTP) ----------
-def send_otp_email(receiver_email, otp):
+def send_otp_email(receiver, otp):
     try:
-        msg = MIMEMultipart()
+        msg = EmailMessage()
+        msg["Subject"] = "Secure File Sharing - OTP"
         msg["From"] = f"{SENDER_NAME} <{SENDER_EMAIL}>"
-        msg["To"] = receiver_email
-        msg["Subject"] = "Secure File Share - OTP"
+        msg["To"] = receiver
+        msg.set_content(
+            f"Your OTP is: {otp}\n\n"
+            "Use it to download your file.\n"
+            "Do NOT share this with anyone."
+        )
 
-        body = f"Your OTP is: {otp}\n\nDo not share this OTP."
-        msg.attach(MIMEText(body, "plain"))
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.ehlo()
+            smtp.login(SMTP_LOGIN, SMTP_PASSWORD)
+            smtp.send_message(msg)
 
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=20)
-        server.starttls()
-        server.login(SMTP_LOGIN, SMTP_PASSWORD)
-        server.sendmail(SENDER_EMAIL, receiver_email, msg.as_string())
-        server.quit()
-
-        print("OTP SENT SUCCESSFULLY")
         return True
 
     except Exception as e:
-        print("OTP FAILED:", e)
+        print("OTP Mail sending failed:", e)
         return False
 
 # ---------- OTP SETTINGS ----------
@@ -182,3 +184,4 @@ def download_file():
 # ---------- RUN ----------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
