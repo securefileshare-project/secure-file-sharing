@@ -108,7 +108,7 @@ def upload_file():
         already_downloaded = False
 
         verify_link = request.url_root + "verify"
-        ok = send_otp_email(receiver_email, generated_otp, verify_link)
+        ok = send_otp_email(receiver_email, generated_otp)
 
         if not ok:
             flash("OTP email failed. Try again.", "danger")
@@ -226,3 +226,4 @@ def admin_logs():
 # ================= RUN =================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
