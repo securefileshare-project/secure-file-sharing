@@ -5,62 +5,63 @@ import time
 import threading
 from cryptography.fernet import Fernet
 import smtplib
-from email.message import EmailMessage
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "securefilesharingproject"
 
-# -------- EMAIL SETTINGS --------
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL")
-APP_PASSWORD = os.environ.get("APP_PASSWORD")
+# ---------- ENV VARIABLES (FROM RAILWAY) ----------
+SMTP_SERVER = os.getenv("SMTP_SERVER")
+SMTP_PORT = int(os.getenv("SMTP_PORT"))
+SMTP_LOGIN = os.getenv("SMTP_LOGIN")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+SENDER_NAME = os.getenv("SENDER_NAME", "Secure File Share")
 
-# -------- FOLDERS --------
-if not os.path.exists("encrypted_files"):
-    os.makedirs("encrypted_files")
+# ---------- FOLDERS ----------
+os.makedirs("encrypted_files", exist_ok=True)
+os.makedirs("logs", exist_ok=True)
 
-if not os.path.exists("logs"):
-    os.makedirs("logs")
-
-# -------- ENCRYPTION --------
+# ---------- ENCRYPTION ----------
 KEY_FILE = "secret.key"
 
 if not os.path.exists(KEY_FILE):
     key = Fernet.generate_key()
-    with open(KEY_FILE, "wb") as kf:
-        kf.write(key)
+    with open(KEY_FILE, "wb") as f:
+        f.write(key)
 else:
-    with open(KEY_FILE, "rb") as kf:
-        key = kf.read()
+    with open(KEY_FILE, "rb") as f:
+        key = f.read()
 
 cipher = Fernet(key)
 
-# -------- SEND OTP MAIL --------
-def send_otp_email(receiver, otp):
+# ---------- SEND OTP EMAIL (BREVO SMTP) ----------
+def send_otp_email(receiver_email, otp):
     try:
-        msg = EmailMessage()
-        msg["Subject"] = "Secure File Sharing - OTP"
-        msg["From"] = SENDER_EMAIL
-        msg["To"] = receiver
-        msg.set_content(
-            f"Your OTP is: {otp}\n\nUse it to download your file.\nDo NOT share this with anyone."
-        )
+        msg = MIMEMultipart()
+        msg["From"] = f"{SENDER_NAME} <{SENDER_EMAIL}>"
+        msg["To"] = receiver_email
+        msg["Subject"] = "Secure File Share - OTP"
 
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as smtp:
-            smtp.ehlo()
-            smtp.starttls()
-            smtp.ehlo()
-            smtp.login(SENDER_EMAIL, APP_PASSWORD)
-            smtp.send_message(msg)
+        body = f"Your OTP is: {otp}\n\nDo not share this OTP."
+        msg.attach(MIMEText(body, "plain"))
 
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=20)
+        server.starttls()
+        server.login(SMTP_LOGIN, SMTP_PASSWORD)
+        server.sendmail(SENDER_EMAIL, receiver_email, msg.as_string())
+        server.quit()
+
+        print("OTP SENT SUCCESSFULLY")
         return True
 
     except Exception as e:
-        print("OTP Mail sending failed:", e)
+        print("OTP FAILED:", e)
         return False
 
-
-# -------- GLOBAL OTP SETTINGS --------
+# ---------- OTP SETTINGS ----------
 generated_otp = None
 otp_created_time = None
 OTP_VALIDITY = 120
@@ -68,15 +69,16 @@ wrong_attempts = 0
 MAX_ATTEMPTS = 3
 otp_blocked = False
 receiver_email = None
-already_downloaded = False   # ⭐ download limit flag
+already_downloaded = False
 
-# -------- LOG FUNCTION --------
+# ---------- LOG ----------
 def write_log(email, ip, status):
     with open("logs/download_log.txt", "a") as log:
-        time_now = datetime.now().strftime("%d-%m-%Y %I:%M %p")
-        log.write(f"{time_now} | {email} | {ip} | {status}\n")
+        log.write(
+            f"{datetime.now().strftime('%d-%m-%Y %I:%M %p')} | {email} | {ip} | {status}\n"
+        )
 
-# -------- UPLOAD + ENCRYPT --------
+# ---------- UPLOAD ----------
 @app.route("/", methods=["GET", "POST"])
 def upload_file():
     global generated_otp, otp_created_time, wrong_attempts, otp_blocked, receiver_email, already_downloaded
@@ -85,28 +87,25 @@ def upload_file():
         file = request.files["file"]
         receiver_email = request.form["email"]
 
-        if file and file.filename != "":
-            file_data = file.read()
-            encrypted_data = cipher.encrypt(file_data)
-
-            encrypted_path = os.path.join("encrypted_files", file.filename)
-            with open(encrypted_path, "wb") as f:
+        if file and file.filename:
+            encrypted_data = cipher.encrypt(file.read())
+            with open(f"encrypted_files/{file.filename}", "wb") as f:
                 f.write(encrypted_data)
 
             generated_otp = random.randint(100000, 999999)
             otp_created_time = time.time()
             wrong_attempts = 0
             otp_blocked = False
-            already_downloaded = False   # ⭐ reset on new upload
+            already_downloaded = False
 
             send_otp_email(receiver_email, generated_otp)
 
-            flash("File uploaded & encrypted. OTP sent to receiver email!", "success")
+            flash("File uploaded & OTP sent!", "success")
             return redirect(url_for("verify_otp"))
 
     return render_template("upload.html")
 
-# -------- VERIFY OTP --------
+# ---------- VERIFY OTP ----------
 @app.route("/verify", methods=["GET", "POST"])
 def verify_otp():
     global wrong_attempts, otp_blocked
@@ -114,130 +113,72 @@ def verify_otp():
     if request.method == "POST":
         user_otp = request.form["otp"]
 
-        # BLOCKED
         if otp_blocked:
-            write_log(receiver_email, request.remote_addr, "BLOCKED")
-            flash("OTP blocked — upload file again.", "danger")
+            flash("OTP blocked", "danger")
             return redirect(url_for("upload_file"))
 
-        # EXPIRED
         if time.time() - otp_created_time > OTP_VALIDITY:
             otp_blocked = True
-            write_log(receiver_email, request.remote_addr, "OTP EXPIRED")
-            flash("OTP expired — upload new file.", "danger")
+            flash("OTP expired", "danger")
             return redirect(url_for("upload_file"))
 
-        # CORRECT OTP
         if str(user_otp) == str(generated_otp):
-
-            # ---- SHOW FILE NAME + SIZE ----
             files = os.listdir("encrypted_files")
-            file_name = files[-1]
-            file_size = round(os.path.getsize(f"encrypted_files/{file_name}") / 1024, 2)
+            fname = files[-1]
+            fsize = round(os.path.getsize(f"encrypted_files/{fname}") / 1024, 2)
 
             write_log(receiver_email, request.remote_addr, "OTP VERIFIED")
+            return render_template("download_ready.html", filename=fname, size=fsize)
 
-            flash("OTP verified!", "success")
+        wrong_attempts += 1
+        write_log(receiver_email, request.remote_addr, "WRONG OTP")
 
-            return render_template(
-                "download_ready.html",
-                filename=file_name,
-                size=file_size
-            )
-
-        # WRONG OTP
+        if wrong_attempts >= MAX_ATTEMPTS:
+            otp_blocked = True
+            flash("OTP blocked", "danger")
         else:
-            wrong_attempts += 1
-            write_log(receiver_email, request.remote_addr, "WRONG OTP")
-
-            if wrong_attempts >= MAX_ATTEMPTS:
-                otp_blocked = True
-                write_log(receiver_email, request.remote_addr,
-                          "TOO MANY ATTEMPTS — BLOCKED")
-                flash("Too many wrong attempts — OTP blocked.", "danger")
-            else:
-                flash("Invalid OTP — try again.", "danger")
+            flash("Invalid OTP", "danger")
 
     return render_template("otp.html")
 
-# -------- AUTO DELETE AFTER DOWNLOAD --------
+# ---------- DELETE ----------
 def delayed_cleanup(paths):
     time.sleep(2)
     for p in paths:
-        try:
-            if os.path.exists(p):
-                os.remove(p)
-        except:
-            pass
+        if os.path.exists(p):
+            os.remove(p)
 
-# -------- ADMIN LOG VIEW --------
-@app.route("/admin/logs")
-def view_logs():
-    logs = []
-    log_file_path = "logs/download_log.txt"
-
-    if os.path.exists(log_file_path):
-        with open(log_file_path, "r") as lf:
-            for line in lf.readlines():
-                parts = [p.strip() for p in line.split("|")]
-                if len(parts) == 4:
-                    logs.append({
-                        "date": parts[0],
-                        "email": parts[1],
-                        "ip": parts[2],
-                        "status": parts[3],
-                    })
-
-    return render_template("logs.html", logs=logs)
-
-# -------- DOWNLOAD (ONE-TIME ONLY) --------
+# ---------- DOWNLOAD ----------
 @app.route("/download")
 def download_file():
     global already_downloaded
 
-    # ⭐ block second time download
     if already_downloaded:
-        flash("This file was already downloaded — access blocked.", "danger")
-        write_log(receiver_email, request.remote_addr, "BLOCKED (SECOND DOWNLOAD)")
+        flash("Already downloaded", "danger")
         return redirect(url_for("upload_file"))
 
     files = os.listdir("encrypted_files")
-    if not files:
-        flash("No file found!", "danger")
-        return redirect(url_for("upload_file"))
+    encrypted_file = files[-1]
 
-    encrypted_filename = files[-1]
-    encrypted_path = os.path.join("encrypted_files", encrypted_filename)
+    with open(f"encrypted_files/{encrypted_file}", "rb") as f:
+        decrypted_data = cipher.decrypt(f.read())
 
-    with open(encrypted_path, "rb") as f:
-        encrypted_data = f.read()
-
-    decrypted_data = cipher.decrypt(encrypted_data)
-
-    decrypted_path = os.path.join("encrypted_files", "decrypted_" + encrypted_filename)
+    decrypted_path = f"encrypted_files/decrypted_{encrypted_file}"
 
     with open(decrypted_path, "wb") as f:
         f.write(decrypted_data)
 
     write_log(receiver_email, request.remote_addr, "SUCCESS")
-    already_downloaded = True   # ⭐ mark as used
+    already_downloaded = True
 
     threading.Thread(
         target=delayed_cleanup,
-        args=([encrypted_path, decrypted_path],),
+        args=([f"encrypted_files/{encrypted_file}", decrypted_path],),
         daemon=True,
     ).start()
 
-    flash("File downloaded — it has been deleted from the server.", "info")
     return send_file(decrypted_path, as_attachment=True)
 
+# ---------- RUN ----------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-
-
-
-
-
-
+    app.run(host="0.0.0.0", port=5000)
