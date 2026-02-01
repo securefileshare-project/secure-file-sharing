@@ -51,26 +51,32 @@ def write_log(email, ip, status):
         log.write(f"{t} | {email} | {ip} | {status}\n")
 
 # ================= SEND OTP (BREVO) =================
+from email.message import EmailMessage
+import smtplib
+import os
+
 def send_otp_email(receiver, otp):
     try:
         msg = EmailMessage()
         msg["Subject"] = "Secure File Sharing - OTP"
         msg["From"] = os.environ.get("SENDER_EMAIL")
         msg["To"] = receiver
-        msg.set_content(
-            f"Your OTP is: {otp}\n\nDo NOT share this OTP with anyone."
-        )
+        msg.set_content(f"Your OTP is: {otp}")
 
-        smtp_server = os.environ.get("SMTP_SENDER")      # smtp-relay.brevo.com
-        smtp_port = int(os.environ.get("SMTP_PORT"))    # 587
-        smtp_login = os.environ.get("SMTP_LOGIN")        # a0f40500@smtp-brevo.com
-        smtp_password = os.environ.get("SMTP_PASSWORD") # Brevo SMTP KEY
+        smtp_server = os.environ.get("SMTP_SENDER")   # smtp-relay.brevo.com
+        smtp_port = int(os.environ.get("SMTP_PORT")) # 587
+        smtp_login = os.environ.get("SMTP_LOGIN")
+        smtp_password = os.environ.get("SMTP_PASSWORD")
 
-        with smtplib.SMTP(smtp_server, smtp_port, timeout=30) as smtp:
-            smtp.starttls()
-            smtp.login(smtp_login, smtp_password)
-            smtp.send_message(msg)
+        # 👇 IMPORTANT: create SMTP INSIDE function
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(smtp_login, smtp_password)
+            server.send_message(msg)
 
+        print("OTP mail sent successfully")
         return True
 
     except Exception as e:
@@ -224,5 +230,6 @@ def admin_logs():
 # ================= RUN =================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
