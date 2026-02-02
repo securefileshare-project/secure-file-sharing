@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.secret_key = "securefilesharingproject"
 
 # ================= SMTP (BREVO) =================
-SMTP_SERVER = os.environ.get("SMTP_SENDER")        # smtp-relay.brevo.com
+SMTP_SERVER = os.environ.get("SMTP_SERVER")        # smtp-relay.brevo.com
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_LOGIN = os.environ.get("SMTP_LOGIN")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
@@ -169,3 +169,4 @@ def download():
 # ================= RUN =================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
